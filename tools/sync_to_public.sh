@@ -33,6 +33,7 @@ PUBLIC_PATHS=(
     .gitignore
     verif/ovip_common
     verif/ovip_axi
+    verif/ovip_axi_stream
     examples
 )
 
