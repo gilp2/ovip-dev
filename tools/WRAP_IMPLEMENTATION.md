@@ -29,7 +29,7 @@ Address(n)   = Wrap_Lower + ((Start_Address - Wrap_Lower + n*Nbytes) % Total)
 ```
 i.e. addresses step by `Nbytes`; when they would reach `Wrap_Upper` they wrap to
 `Wrap_Lower`. The **byte lane** a beat occupies on the data bus is
-`Address(n) % bus_width_bytes` (same rule as INCR — only the address sequence
+`Address(n) % bus_width_bytes` (same rule as INCR -- only the address sequence
 differs).
 
 Worked example: `Start=0x34`, `Nbytes=4`, `Len=4` → `Total=16`,
@@ -46,13 +46,13 @@ Worked example: `Start=0x34`, `Nbytes=4`, `Len=4` → `Total=16`,
 | `ovip_axi_trans.sv` (grep `check_strb: OVIP_AXI_BURST_WRAP`) | `uvm_fatal` in `check_strb` |
 | `ovip_axi_trans.sv` (grep `Only INCR burst type is supported`) | `uvm_fatal_context` in `reshape_axi_transaction` |
 | `ovip_axi_base_slave_sequence.sv` (grep `populate_data_from_mem: OVIP_AXI_BURST_WRAP`) | `uvm_fatal` in `populate_data_from_mem` |
-| `ovip_axi_base_slave_sequence.sv` (`write_transaction_to_mem`) | falls through silently — only INCR/FIXED handled |
+| `ovip_axi_base_slave_sequence.sv` (`write_transaction_to_mem`) | falls through silently -- only INCR/FIXED handled |
 
 ---
 
 ## 3. Files & functions to modify
 
-### 3.1 `src/ovip_axi_trans.sv` — the core, do this first
+### 3.1 `src/ovip_axi_trans.sv` -- the core, do this first
 
 This is where the per-beat address→byte-lane mapping lives; the drivers, monitor
 and slave sequence all rely on it, so fixing it unblocks most of the rest.
@@ -79,17 +79,17 @@ and slave sequence all rely on it, so fixing it unblocks most of the rest.
   case the address stepping. Consider whether you'd rather **not** reshape WRAP at
   all and instead handle it directly in the slave sequence (see 3.3).
 
-### 3.2 `src/ovip_axi_monitor.sv` — `check_address_phase`
+### 3.2 `src/ovip_axi_monitor.sv` -- `check_address_phase`
 
 - Remove the `uvm_fatal` (grep `need to implement transaction check for WRAP`).
   The WRAP checks are **already written** right below it (start-address alignment,
-  length ∈ {2,4,8,16}) — they're just dead code behind the fatal. Un-dead-code them.
+  length ∈ {2,4,8,16}) -- they're just dead code behind the fatal. Un-dead-code them.
 - No 4K-cross check is needed for WRAP (§1).
 - Data reconstruction (`sample_write_data` / `sample_read_data`) already shifts by
-  `transfer_starting_byte_lane[...]`, so it works automatically once 3.1 is done —
+  `transfer_starting_byte_lane[...]`, so it works automatically once 3.1 is done --
   but verify the per-beat lane is what the monitor expects for wrapped addresses.
 
-### 3.3 `src/seq/ovip_axi_base_slave_sequence.sv` — the responder model
+### 3.3 `src/seq/ovip_axi_base_slave_sequence.sv` -- the responder model
 
 - **`populate_data_from_mem`** (grep `populate_data_from_mem: OVIP_AXI_BURST_WRAP`):
   remove the `uvm_fatal` and produce read data for a WRAP burst. Compute each
@@ -109,10 +109,10 @@ and slave sequence all rely on it, so fixing it unblocks most of the rest.
 - **Verify** there are no INCR-only assumptions in the data-driving loops
   (search the drivers for any beat→address/lane math that assumes monotonic
   increment). The address channel only carries the start address, so the driver
-  doesn't compute the wrap itself — the DUT does — but the **data placement** must
+  doesn't compute the wrap itself -- the DUT does -- but the **data placement** must
   match the wrapped lanes.
 
-### 3.5 `src/ovip_axi_agent_config.sv` — `check_config`
+### 3.5 `src/ovip_axi_agent_config.sv` -- `check_config`
 
 - WRAP is legal on AXI3 and AXI4 but **not** on AXI4-Lite (no bursts). Add a
   guard in `check_config` rejecting WRAP-capable configs on `OVIP_PROTOCOL_AXI4_LITE`
@@ -137,7 +137,7 @@ and slave sequence all rely on it, so fixing it unblocks most of the rest.
 2. **Monitor** (3.2): un-fatal `check_address_phase`; confirm reconstruction.
 3. **Slave responder** (3.3): `populate_data_from_mem` + `write_*_to_mem`
    (and decide the `reshape_axi_transaction` strategy from 3.1).
-4. **Stimulus + test** (3.6) — bring this up early alongside step 1 so you can
+4. **Stimulus + test** (3.6) -- bring this up early alongside step 1 so you can
    iterate against real waveforms.
 5. **Config guard** (3.5) and **docs** (add a WRAP subsection to
    `verif/ovip_axi/README.md` "Basic Timings", drop the WRAP bullet from
@@ -153,6 +153,6 @@ and slave sequence all rely on it, so fixing it unblocks most of the rest.
 - [ ] Write WRAP → read back (INCR or WRAP) through the memory model matches.
 - [ ] Misaligned start address and illegal length (e.g. 3) are flagged as errors,
       not crashes.
-- [ ] WRAP never crosses 4 KiB (sanity — should be impossible by construction).
+- [ ] WRAP never crosses 4 KiB (sanity -- should be impossible by construction).
 - [ ] `monitor_error`/SLVERR path behaves for malformed WRAP (ties into the
       existing request-validity wiring).
