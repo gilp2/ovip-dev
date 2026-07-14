@@ -34,6 +34,7 @@ PUBLIC_PATHS=(
     verif/ovip_common
     verif/ovip_axi
     verif/ovip_axi_stream
+    verif/ovip_ace
     examples
 )
 
@@ -131,16 +132,26 @@ else
     CREDIT_RANGE="HEAD"
 fi
 
-# Skip the sync-runner: they're already the commit author, no self-co-author.
+# Credit both the primary authors of the published commits AND anyone already
+# named in a Co-authored-by trailer on them (so co-authors -- e.g. an AI pair or
+# a patch contributor whose work was applied under the maintainer's name --
+# propagate to the public repo too). Skip the sync-runner: they are already the
+# commit author, no self-co-author line needed.
 SELF_EMAIL=$(git -C "$DEV_ROOT" config user.email || true)
 COAUTHOR_TRAILERS=$(
-    git -C "$DEV_ROOT" log "$CREDIT_RANGE" --no-merges --format='%an|%ae' \
-        -- "${PUBLIC_PATHS[@]}" \
+    {
+        git -C "$DEV_ROOT" log "$CREDIT_RANGE" --no-merges \
+            --format='%an <%ae>' -- "${PUBLIC_PATHS[@]}"
+        git -C "$DEV_ROOT" log "$CREDIT_RANGE" --no-merges \
+            --format='%(trailers:key=Co-authored-by,valueonly)' -- "${PUBLIC_PATHS[@]}"
+    } \
+    | sed '/^[[:space:]]*$/d' \
     | sort -u \
-    | while IFS='|' read -r _name _email; do
-          [[ -z "$_name" || -z "$_email" ]] && continue
-          [[ -n "$SELF_EMAIL" && "$_email" == "$SELF_EMAIL" ]] && continue
-          echo "Co-authored-by: $_name <$_email>"
+    | while IFS= read -r _person; do
+          # _person is "Name <email>"; drop the sync-runner by email.
+          _pemail=$(printf '%s' "$_person" | sed -n 's/.*<\(.*\)>.*/\1/p')
+          [[ -n "$SELF_EMAIL" && "$_pemail" == "$SELF_EMAIL" ]] && continue
+          echo "Co-authored-by: $_person"
       done
 )
 
