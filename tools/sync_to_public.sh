@@ -67,6 +67,7 @@ if [[ ! -d verif/ovip_axi || ! -d examples ]]; then
 fi
 
 DEV_SHA=$(git rev-parse --short HEAD)
+DEV_ROOT=$(git rev-parse --show-toplevel)
 SCRATCH=$(mktemp -d)
 trap "rm -rf '$SCRATCH'" EXIT
 
@@ -106,12 +107,59 @@ git diff --cached --quiet && { echo "[sync] nothing to commit"; exit 0; }
 echo "[sync] staged changes:"
 git diff --cached --stat | tail -30
 
+# -----------------------------------------------------------------------------
+# Contributor credit: the mirror publishes ONE squashed commit per sync,
+# authored by whoever runs this script -- so without help, only the sync-runner
+# ever shows on the public repo's GitHub contributor graph. GitHub attributes
+# `Co-authored-by:` trailers to the matching account (when the email is tied to
+# that GitHub user), so we emit one trailer per contributor whose work is being
+# published, reusing their name+email exactly as recorded in ovip-dev history.
+#
+# Range = dev commits published since the last sync, scoped to the allowlisted
+# paths (so only people whose work actually lands in the public repo get
+# credited). We recover the previously synced dev SHA from the prior sync
+# commit's message; on the first sync (or if that SHA is gone) we credit the
+# full history instead. cwd here is the shallow public clone, so `git log -1`
+# reads the previous sync commit; dev-repo queries use `git -C "$DEV_ROOT"`.
+# -----------------------------------------------------------------------------
+LAST_SYNC_SHA=$(git log -1 --format=%B 2>/dev/null \
+    | sed -n 's/^Sync from ovip-dev @ \([0-9a-f]\{4,\}\).*/\1/p' | head -1)
+if [[ -n "$LAST_SYNC_SHA" ]] && \
+   git -C "$DEV_ROOT" cat-file -e "${LAST_SYNC_SHA}^{commit}" 2>/dev/null; then
+    CREDIT_RANGE="${LAST_SYNC_SHA}..HEAD"
+else
+    CREDIT_RANGE="HEAD"
+fi
+
+# Skip the sync-runner: they're already the commit author, no self-co-author.
+SELF_EMAIL=$(git -C "$DEV_ROOT" config user.email || true)
+COAUTHOR_TRAILERS=$(
+    git -C "$DEV_ROOT" log "$CREDIT_RANGE" --no-merges --format='%an|%ae' \
+        -- "${PUBLIC_PATHS[@]}" \
+    | sort -u \
+    | while IFS='|' read -r _name _email; do
+          [[ -z "$_name" || -z "$_email" ]] && continue
+          [[ -n "$SELF_EMAIL" && "$_email" == "$SELF_EMAIL" ]] && continue
+          echo "Co-authored-by: $_name <$_email>"
+      done
+)
+
+if [[ -n "$COAUTHOR_TRAILERS" ]]; then
+    echo "[sync] crediting contributors (range $CREDIT_RANGE):"
+    echo "$COAUTHOR_TRAILERS" | sed 's/^/  /'
+fi
+
 if (( DRY_RUN )); then
     echo "[sync] DRY RUN -- not pushing. Pass --push to publish."
     exit 0
 fi
 
-git commit -m "Sync from ovip-dev @ $DEV_SHA"
+COMMIT_MSG="Sync from ovip-dev @ $DEV_SHA"
+if [[ -n "$COAUTHOR_TRAILERS" ]]; then
+    # Blank line before the trailer block so GitHub parses the trailers.
+    COMMIT_MSG+=$'\n\n'"$COAUTHOR_TRAILERS"
+fi
+git commit -m "$COMMIT_MSG"
 # Push the local HEAD to the public repo's main, regardless of what local
 # branch git happens to have created on clone (modern git defaults vary
 # between main / master).
