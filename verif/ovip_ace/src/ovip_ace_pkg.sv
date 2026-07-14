@@ -15,10 +15,17 @@ package ovip_ace_pkg;
 	`include "ovip_ace_types.sv"
 	`include "ovip_ace_agent_config.sv"
 	`include "ovip_ace_trans.sv"
+	`include "ovip_ace_monitor.sv"
+	`include "ovip_ace_master_driver.sv"
+	`include "ovip_ace_slave_driver.sv"
+	`include "ovip_ace_agent.sv"
+	`include "ovip_ace_scoreboard.sv"
 
-	// Driver, monitor, agent, scoreboard, sequence library land in the next
-	// commits. The foundation here -- types/config/trans/interface -- compiles
-	// standalone so the wiring up of the rest can be incremental.
+	// Reusable sequence library -- generic sequences any user testbench can
+	// subclass or instantiate directly. Test-specific sequences belong in the
+	// user's own testbench package.
+	`include "seqlib/ovip_ace_base_master_sequence.sv"
+	`include "seqlib/ovip_ace_base_slave_sequence.sv"
 endpackage : ovip_ace_pkg
 
 `endif

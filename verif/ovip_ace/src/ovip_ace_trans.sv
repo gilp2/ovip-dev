@@ -166,6 +166,32 @@ class ovip_ace_trans extends ovip_axi_trans;
 		return s;
 	endfunction : convert2string
 
+
+	// Carry the ACE additions across copy(). Needed because the agent installs a
+	// factory override (ovip_axi_trans -> ovip_ace_trans): the monitor's
+	// slave-response path and the scoreboard copy transactions through an
+	// ovip_axi_trans handle, so without this the ACE fields would be dropped.
+	virtual function void do_copy(uvm_object rhs);
+		ovip_ace_trans that;
+		super.do_copy(rhs);
+		if(!$cast(that, rhs)) return;
+		direction            = that.direction;
+		domain               = that.domain;
+		snoop                = that.snoop;
+		bar                  = that.bar;
+		awunique             = that.awunique;
+		is_shared            = that.is_shared;
+		pass_dirty           = that.pass_dirty;
+		snoop_addr           = that.snoop_addr;
+		acsnoop_code         = that.acsnoop_code;
+		acprot               = that.acprot;
+		snoop_resp           = that.snoop_resp;
+		snoop_data_beats     = that.snoop_data_beats;
+		expected_start_state = that.expected_start_state;
+		expected_end_state   = that.expected_end_state;
+		state_hint_valid     = that.state_hint_valid;
+	endfunction : do_copy
+
 endclass : ovip_ace_trans
 
 `endif

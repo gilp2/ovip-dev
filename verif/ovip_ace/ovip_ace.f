@@ -24,5 +24,6 @@
 -f $OVIP_ROOT/verif/ovip_axi/ovip_axi.f
 
 +incdir+$OVIP_ROOT/verif/ovip_ace/src
++incdir+$OVIP_ROOT/verif/ovip_ace/src/seqlib
 
 $OVIP_ROOT/verif/ovip_ace/src/ovip_ace_pkg.sv
